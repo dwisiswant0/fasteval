@@ -1,0 +1,6 @@
+fasteval
+Copyright 2026 Dwi Siswanto
+
+The expression operator grammar is compatible with the govaluate project.
+The template execution model is inspired by the fasttemplate project.
+fasteval contains an independent implementation and does not include their source code.

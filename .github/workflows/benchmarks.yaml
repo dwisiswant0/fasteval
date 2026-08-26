@@ -1,0 +1,33 @@
+name: benchmarks
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+jobs:
+  benchmark:
+    runs-on: "ubuntu-latest"
+    env:
+      GOMAXPROCS: 4
+      CPU_OUT: cpu.pprof
+      MEM_OUT: mem.pprof
+    steps:
+      - uses: actions/checkout@v6
+      - uses: projectdiscovery/actions/setup/go@v1
+        with:
+          go-version: "stable"
+          cache-dependency-path: "/benchmarks/go.mod"
+      - run: make bench CPU_OUT=${{ env.CPU_OUT }} MEM_OUT=${{ env.MEM_OUT }}
+        working-directory: ./benchmarks
+      - run: make benchstat
+        working-directory: ./benchmarks
+      - run: make vizb
+        working-directory: ./benchmarks
+      - uses: actions/upload-artifact@v7
+        with:
+          name: benchmarks
+          path: |
+            benchmarks/out/results
+            benchmarks/out/results.html
+            benchmarks/cpu.pprof
+            benchmarks/mem.pprof

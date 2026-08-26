@@ -1,0 +1,47 @@
+version: "2"
+
+linters:
+  disable:
+    # The replacement linters remain enabled by --default=all.
+    - gomodguard
+    - wsl
+
+  settings:
+    depguard:
+      rules:
+        main:
+          list-mode: strict
+          files:
+            - $all
+          allow:
+            - $gostd
+            # depguard does not include go/* packages in its $gostd match.
+            - go/constant$
+            - go/token$
+            - go.dw1.io/fasteval$
+            - go.dw1.io/safemath$
+
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+
+    nilnil:
+      # Interface nils are valid expression values and JSON null values.
+      checked-types:
+        - chan
+        - func
+        - map
+        - ptr
+        - uintptr
+        - unsafeptr
+
+  exclusions:
+    rules:
+      # These tests verify private equality-hash invariants.
+      - path: ^equality_hash_test\.go$
+        linters:
+          - testpackage
