@@ -544,7 +544,7 @@ func (l *lexer) emitSingleCharacterToken(start int, runeValue rune, size int) *D
 
 	kind, ok := singleCharacterTokenKind(runeValue)
 	if !ok {
-		return l.diagnostic(start, l.offset, fmt.Sprintf("invalid token %q", string(runeValue)))
+		return l.diagnostic(start, l.offset, "invalid token "+strconv.Quote(string(runeValue)))
 	}
 
 	l.emit(newLexToken(kind, l.source[start:l.offset], nil, start, l.offset))
