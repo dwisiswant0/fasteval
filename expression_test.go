@@ -666,6 +666,46 @@ func TestTypedProgramRecursivelyConverts(t *testing.T) {
 	}
 }
 
+func TestEvalAsConvertsSignedSlices(t *testing.T) {
+	t.Parallel()
+
+	assertEvalAsValue(t, testValue, map[string]any{testValue: []int8{-1, 1}}, []int{-1, 1})
+	assertEvalAsValue(t, testValue, map[string]any{testValue: []int16{-128, 127}}, []int8{-128, 127})
+	assertEvalAsValue(t, testValue, map[string]any{testValue: []int32{-32_768, 32_767}}, []int16{-32_768, 32_767})
+	assertEvalAsValue(
+		t, testValue,
+		map[string]any{testValue: []int64{-2_147_483_648, 2_147_483_647}},
+		[]int32{-2_147_483_648, 2_147_483_647},
+	)
+	assertEvalAsValue(t, testValue, map[string]any{testValue: []int{-1, 1}}, []int64{-1, 1})
+
+	_, err := fasteval.EvalAs[[]int8](
+		context.Background(), testValue, map[string]any{testValue: []int16{128}},
+	)
+	if err == nil {
+		t.Fatal("EvalAs[[]int8]() error = nil, want narrowing error")
+	}
+}
+
+func TestEvalAsKeepsAssignableSignedSlice(t *testing.T) {
+	t.Parallel()
+
+	input := []int{1}
+
+	got, err := fasteval.EvalAs[[]int](
+		context.Background(), testValue, map[string]any{testValue: input},
+	)
+	if err != nil {
+		t.Fatalf("EvalAs[[]int]() error = %v", err)
+	}
+
+	got[0] = 2
+
+	if input[0] != 2 {
+		t.Fatalf("EvalAs[[]int]() returned a copy; input = %v", input)
+	}
+}
+
 func TestEvalAsConvertsNamedStringMapKeysToStruct(t *testing.T) {
 	t.Parallel()
 

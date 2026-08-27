@@ -286,7 +286,8 @@ func Eval(ctx context.Context, source string, variables map[string]any, options 
 
 // Program is an immutable compiled expression whose result is converted to T.
 type Program[T any] struct {
-	expression *Expression
+	expression        *Expression
+	signedSliceTarget bool
 }
 
 // CompileAs compiles source and checks conversion to T during evaluation.
@@ -296,7 +297,7 @@ func CompileAs[T any](source string) (*Program[T], error) {
 		return nil, err
 	}
 
-	return &Program[T]{expression: expression}, nil
+	return &Program[T]{expression: expression, signedSliceTarget: isSignedSliceTarget[T]()}, nil
 }
 
 // CompileAsWith compiles source as T with c.
@@ -306,7 +307,7 @@ func CompileAsWith[T any](c *Compiler, source string) (*Program[T], error) {
 		return nil, err
 	}
 
-	return &Program[T]{expression: expression}, nil
+	return &Program[T]{expression: expression, signedSliceTarget: isSignedSliceTarget[T]()}, nil
 }
 
 // Eval runs p and recursively converts its result to T without loss.
@@ -321,9 +322,22 @@ func (p *Program[T]) Eval(ctx context.Context, variables map[string]any, options
 		return zero, err
 	}
 
-	converted, err := convertToWithAssignableScan[T](
-		contextOrBackground(ctx), value, isLiteralCollection(value),
-	)
+	ctx = contextOrBackground(ctx)
+	scanAssignable := isLiteralCollection(value)
+
+	var converted T
+
+	if p.signedSliceTarget {
+		var handled bool
+
+		converted, handled, err = convertSignedSlice[T](ctx, value)
+		if !handled && err == nil {
+			converted, err = convertToWithAssignableScan[T](ctx, value, scanAssignable)
+		}
+	} else {
+		converted, err = convertToWithAssignableScan[T](ctx, value, scanAssignable)
+	}
+
 	if err != nil {
 		var evaluationErr *EvalError
 		if errors.As(err, &evaluationErr) {
@@ -334,6 +348,17 @@ func (p *Program[T]) Eval(ctx context.Context, variables map[string]any, options
 	}
 
 	return converted, nil
+}
+
+func isSignedSliceTarget[T any]() bool {
+	var target T
+
+	switch any(&target).(type) {
+	case *[]int, *[]int8, *[]int16, *[]int32, *[]int64:
+		return true
+	default:
+		return false
+	}
 }
 
 // EvalAs compiles source with the default compiler and evaluates it as T.

@@ -6,6 +6,8 @@ import (
 	"math"
 	"reflect"
 	"strings"
+
+	"go.dw1.io/safemath"
 )
 
 const maxValueDepth = 1_024
@@ -61,6 +63,103 @@ func convertToWithAssignableScan[T any](ctx context.Context, value any, scanAssi
 	}
 
 	return result, nil
+}
+
+func convertSignedSlice[T any](ctx context.Context, value any) (T, bool, error) {
+	var zero T
+
+	switch source := value.(type) {
+	case []int:
+		return convertSignedSliceTarget[T](ctx, source)
+	case []int8:
+		return convertSignedSliceTarget[T](ctx, source)
+	case []int16:
+		return convertSignedSliceTarget[T](ctx, source)
+	case []int32:
+		return convertSignedSliceTarget[T](ctx, source)
+	case []int64:
+		return convertSignedSliceTarget[T](ctx, source)
+	default:
+		return zero, false, nil
+	}
+}
+
+func sameSignedSliceType[T any, S safemath.Signed]() bool {
+	var target T
+
+	_, same := any(&target).(*[]S)
+
+	return same
+}
+
+func convertSignedSliceTarget[T any, S safemath.Signed](
+	ctx context.Context,
+	source []S,
+) (T, bool, error) {
+	var result T
+	if sameSignedSliceType[T, S]() {
+		return result, false, nil
+	}
+
+	switch target := any(&result).(type) {
+	case *[]int:
+		err := convertSignedSliceElements(ctx, source, target)
+
+		return result, true, err
+	case *[]int8:
+		err := convertSignedSliceElements(ctx, source, target)
+
+		return result, true, err
+	case *[]int16:
+		err := convertSignedSliceElements(ctx, source, target)
+
+		return result, true, err
+	case *[]int32:
+		err := convertSignedSliceElements(ctx, source, target)
+
+		return result, true, err
+	case *[]int64:
+		err := convertSignedSliceElements(ctx, source, target)
+
+		return result, true, err
+	default:
+		return result, false, nil
+	}
+}
+
+func convertSignedSliceElements[S, D safemath.Signed](
+	ctx context.Context,
+	source []S,
+	target *[]D,
+) error {
+	ctx = contextOrBackground(ctx)
+
+	err := contextCheckAt(ctx, "convert value", emptySpan())
+	if err != nil {
+		return err
+	}
+
+	converted := make([]D, len(source))
+	for position, value := range source {
+		err = contextCheckAt(ctx, "convert value", emptySpan())
+		if err != nil {
+			return err
+		}
+
+		convertedValue := D(value)
+		if S(convertedValue) != value {
+			return fmt.Errorf(
+				"element %d: %w", position,
+				newDetailError("%v does not fit in %v", value, reflect.TypeFor[D]()),
+			)
+		}
+
+		converted[position] = convertedValue
+	}
+
+	*target = converted
+
+	return nil
 }
 
 func convertReflectContext(ctx context.Context, input any, target reflect.Type) (reflect.Value, error) {
