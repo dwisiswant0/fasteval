@@ -1,6 +1,9 @@
 package fasteval
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 const (
 	// maxChildChunkCapacity bounds retained storage for invalid input while consolidating fixed-arity child lists.
@@ -132,7 +135,7 @@ func parseTokens(tokens []lexToken, lineOffsets []int) (*Node, *DiagnosticsError
 	root, failure := parserState.expression(0)
 	if failure == nil && parserState.peek().kind != tokenEOF {
 		failure = parserState.fail(
-			parserState.peek(), fmt.Sprintf("unexpected token %q", parserState.peek().text),
+			parserState.peek(), "unexpected token "+strconv.Quote(parserState.peek().text),
 		)
 	}
 
