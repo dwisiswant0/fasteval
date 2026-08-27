@@ -67,6 +67,34 @@ func BenchmarkCompileWorkloads(b *testing.B) {
 	}
 }
 
+func BenchmarkCompileInvalid(b *testing.B) {
+	for _, test := range []struct {
+		name   string
+		source string
+	}{
+		{name: "missing_operand", source: testValue + " +"},
+		{name: "unexpected_token", source: testValue + " " + testValue},
+		{name: "invalid_token", source: "@"},
+	} {
+		_, err := fasteval.Compile(test.source)
+		if err == nil {
+			b.Fatalf("Compile(%q) succeeded, want error", test.source)
+		}
+
+		b.Run(test.name, func(b *testing.B) {
+			b.ReportAllocs()
+
+			var result error
+
+			for b.Loop() {
+				_, result = fasteval.Compile(test.source)
+			}
+
+			runtime.KeepAlive(result)
+		})
+	}
+}
+
 func BenchmarkCompileNestedLists(b *testing.B) {
 	for _, depth := range []int{100, 1_000} {
 		source := strings.Repeat("[", depth) + "0" + strings.Repeat(",]", depth)
@@ -483,6 +511,30 @@ func BenchmarkEvalAsIntegerSlice(b *testing.B) {
 		}
 
 		result = value
+	}
+
+	runtime.KeepAlive(result)
+}
+
+func BenchmarkEvalAsSameIntegerSlice(b *testing.B) {
+	program, err := fasteval.CompileAs[[]int](testValue)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	values := make([]int, 100_000)
+	variables := map[string]any{testValue: values}
+	ctx := context.Background()
+
+	b.ReportAllocs()
+
+	var result []int
+
+	for b.Loop() {
+		result, err = program.Eval(ctx, variables)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 
 	runtime.KeepAlive(result)
